@@ -102,7 +102,7 @@ const TrPractice = () => {
     setSubmitStatus('');
     try {
       const selectedEssayTopic = essayTopics.find(topic => topic.id === selectedTopic);
-      const response = await fetch('http://localhost:3001/api/evaluate', {
+      const response = await fetch('http://https://ielts-writing-practice.onrender.com/api/evaluate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
