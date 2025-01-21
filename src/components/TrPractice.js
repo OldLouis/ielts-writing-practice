@@ -102,30 +102,41 @@ const TrPractice = () => {
     setSubmitStatus('');
     try {
       const selectedEssayTopic = essayTopics.find(topic => topic.id === selectedTopic);
+      
+      // 添加请求数据的日志
+      const requestData = {
+        outline: userOutline,
+        topic: selectedEssayTopic
+      };
+      console.log('发送请求数据:', requestData);
+      
       const response = await fetch('https://ielts-writing-practice.onrender.com/api/evaluate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          outline: userOutline,
-          topic: selectedEssayTopic
-        })
+        body: JSON.stringify(requestData)
       });
 
+      // 添加响应状态的日志
+      console.log('响应状态:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        const errorText = await response.text();
+        console.error('服务器响应错误:', errorText);
+        throw new Error(`服务器响应错误: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('收到响应数据:', data);
+      
       setFeedback(data.feedback);
       setSubmitStatus('success');
-      // 自动滚动到反馈部分
       document.getElementById('feedbackSection')?.scrollIntoView({ behavior: 'smooth' });
     } catch (error) {
-      console.error('Error:', error);
+      console.error('完整错误信息:', error);
       setSubmitStatus('error');
-      setFeedback('抱歉，评分过程中出现错误，请稍后重试。');
+      setFeedback(`抱歉，评分过程中出现错误：${error.message}`);
     } finally {
       setIsLoading(false);
     }
