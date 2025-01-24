@@ -115,16 +115,19 @@ const TrPractice = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify({
+          outline: userOutline,
+          topic: selectedEssayTopic
+        })
       });
 
       // 添加响应状态的日志
       console.log('响应状态:', response.status);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('服务器响应错误:', errorText);
-        throw new Error(`服务器响应错误: ${response.status} - ${errorText}`);
+        const data = await response.json();
+        console.error('服务器错误:', data);
+        throw new Error(data.details || data.error || '未知错误');
       }
 
       const data = await response.json();

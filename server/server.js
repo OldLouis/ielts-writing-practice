@@ -11,32 +11,34 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// 添加请求日志中间件
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 const API_KEY = process.env.ZHIPU_API_KEY;
 const API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 
 app.post('/api/evaluate', async (req, res) => {
   try {
+    console.log('收到评估请求');
+    console.log('请求体:', req.body);
+    
     const { outline, topic } = req.body;
+    
+    // 检查API密钥是否存在
+    if (!API_KEY) {
+      console.error('未找到API密钥');
+      return res.status(500).json({ error: 'API密钥配置错误' });
+    }
 
-    const prompt = `作为一位专业的雅思写作考官，请对以下雅思大作文框架进行评估和提供建议。
-
-题目：${topic.question}
-类型：${topic.type}
-学生的框架：
-${outline}
-
-请先给一个总体评价包括具体的分数，然后从以下几个方面进行评估和提供建议：
-1. 框架结构是否完整合理
-2. 论点是否切题，论据是否充分
-3. 具体改进建议
-
-请用中文回答，并保持友好专业的语气。`;
-
+    console.log('准备发送到智谱API');
     const response = await axios.post(API_URL, {
       model: "glm-4",
       messages: [
         { role: "system", content: "你是一位专业的雅思写作考官，精通雅思写作评分标准和教学。" },
-        { role: "user", content: prompt }
+        { role: "user", content: `作为一位专业的雅思写作考官，请对以下雅思大作文框架进行评估和提供建议。\n\n题目：${topic.question}\n类型：${topic.type}\n学生的框架：\n${outline}` }
       ],
       temperature: 0.7,
       max_tokens: 1000,
@@ -47,16 +49,30 @@ ${outline}
       }
     });
 
+    console.log('收到智谱API响应');
     const feedback = response.data.choices[0].message.content;
     res.json({ feedback });
 
   } catch (error) {
-    console.error('Error:', error.response?.data || error.message);
-    res.status(500).json({ error: '评分服务出现错误' });
+    console.error('详细错误信息:', error);
+    console.error('API响应错误:', error.response?.data);
+    res.status(500).json({ 
+      error: '评分服务出现错误',
+      details: error.message,
+      apiResponse: error.response?.data 
+    });
   }
+});
+
+// 添加一个测试路由
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log('环境变量检查:');
+  console.log('PORT:', process.env.PORT);
+  console.log('API_KEY 是否存在:', !!process.env.ZHIPU_API_KEY);
 }); 
