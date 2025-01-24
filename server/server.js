@@ -17,6 +17,18 @@ app.use((req, res, next) => {
   next();
 });
 
+// 健康检查路由应该直接返回结果，不需要调用智谱API
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    env: {
+      hasApiKey: !!process.env.ZHIPU_API_KEY,
+      port: process.env.PORT
+    }
+  });
+});
+
 const API_KEY = process.env.ZHIPU_API_KEY;
 const API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 
@@ -64,15 +76,19 @@ app.post('/api/evaluate', async (req, res) => {
   }
 });
 
-// 添加一个测试路由
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// 检查必要的环境变量
+if (!process.env.ZHIPU_API_KEY) {
+  console.error('错误: 缺少必要的环境变量 ZHIPU_API_KEY');
+  console.error('请在 Render 的环境变量设置中添加 ZHIPU_API_KEY');
+}
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+const port = process.env.PORT || 3000;  // 使用 Render 提供的 PORT 环境变量
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
   console.log('环境变量检查:');
   console.log('PORT:', process.env.PORT);
   console.log('API_KEY 是否存在:', !!process.env.ZHIPU_API_KEY);
+  if (!process.env.ZHIPU_API_KEY) {
+    console.log('警告: ZHIPU_API_KEY 未设置，API 调用将会失败');
+  }
 }); 
