@@ -5,26 +5,31 @@ require('dotenv').config();
 
 const app = express();
 
-// 允许的域名列表
+// 更新允许的域名列表
 const allowedOrigins = [
   'http://localhost:3000',
   'https://my-ielts-website-nqrro6c9b-louis-projects-ed306c0f.vercel.app',
-  'https://ielts-writing-practice.vercel.app'
+  'https://ielts-writing-practice.vercel.app',
+  'https://easywrites.online',
+  'https://www.easywrites.online',
 ];
 
-// 简化的 CORS 配置
+// CORS 配置
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+  console.log('请求来源:', origin);  // 添加日志
+
   if (allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
   
   // 处理 OPTIONS 请求
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    res.status(200).end();
+    return;
   }
   
   next();
