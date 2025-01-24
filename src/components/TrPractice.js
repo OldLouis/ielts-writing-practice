@@ -111,7 +111,7 @@ const TrPractice = () => {
         topic: selectedEssayTopic
       };
       
-      const apiUrl = `${API_BASE_URL}/api/evaluate`;
+      const apiUrl = 'https://ielts-writing-practice.onrender.com/api/evaluate';
       console.log('准备发送请求到:', apiUrl);
       console.log('请求数据:', requestData);
 
@@ -120,19 +120,23 @@ const TrPractice = () => {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Origin': 'https://my-ielts-website-nqrro6c9b-louis-projects-ed306c0f.vercel.app'
         },
+        mode: 'cors',  // 明确指定 CORS 模式
+        credentials: 'same-origin',  // 修改凭证策略
         body: JSON.stringify(requestData)
       });
 
       console.log('收到响应状态:', response.status);
-      console.log('响应头:', Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('服务器错误响应:', errorText);
+        throw new Error(`服务器响应错误: ${response.status} - ${errorText}`);
+      }
       
       const data = await response.json();
       console.log('响应数据:', data);
-      
-      if (!response.ok) {
-        throw new Error(data.details || data.error || '服务器响应错误');
-      }
       
       if (data.feedback) {
         setFeedback(data.feedback);
