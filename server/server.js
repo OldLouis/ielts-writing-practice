@@ -4,16 +4,28 @@ const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
+
+// 详细的 CORS 配置
 app.use(cors({
-  origin: '*', // 在开发阶段可以允许所有来源
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type']
+  origin: ['http://localhost:3000', 'https://ielts-writing-practice.vercel.app', '*'],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
+
+// 添加预检请求处理
+app.options('*', cors());
+
 app.use(express.json());
 
 // 添加请求日志中间件
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  console.log('请求头:', req.headers);
+  if (req.method === 'POST') {
+    console.log('请求体:', req.body);
+  }
   next();
 });
 
@@ -39,7 +51,10 @@ app.post('/api/evaluate', async (req, res) => {
     
     const { outline, topic } = req.body;
     
-    // 检查API密钥是否存在
+    if (!outline || !topic) {
+      return res.status(400).json({ error: '缺少必要参数' });
+    }
+    
     if (!API_KEY) {
       console.error('未找到API密钥');
       return res.status(500).json({ error: 'API密钥配置错误' });

@@ -9,6 +9,9 @@ const TrPractice = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [submitStatus, setSubmitStatus] = useState('');
 
+  // 添加 API 基础 URL 配置
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
   // 更新题库为真实考题
   const essayTopics = [
     // Agree/Disagree 类型
@@ -103,43 +106,45 @@ const TrPractice = () => {
     try {
       const selectedEssayTopic = essayTopics.find(topic => topic.id === selectedTopic);
       
-      // 添加请求数据的日志
       const requestData = {
         outline: userOutline,
         topic: selectedEssayTopic
       };
-      console.log('发送请求数据:', requestData);
       
-      const response = await fetch('https://ielts-writing-practice.onrender.com/api/evaluate', {
+      const apiUrl = `${API_BASE_URL}/api/evaluate`;
+      console.log('准备发送请求到:', apiUrl);
+      console.log('请求数据:', requestData);
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({
-          outline: userOutline,
-          topic: selectedEssayTopic
-        })
+        body: JSON.stringify(requestData)
       });
 
-      // 添加响应状态的日志
-      console.log('响应状态:', response.status);
+      console.log('收到响应状态:', response.status);
+      console.log('响应头:', Object.fromEntries(response.headers.entries()));
+      
+      const data = await response.json();
+      console.log('响应数据:', data);
       
       if (!response.ok) {
-        const data = await response.json();
-        console.error('服务器错误:', data);
-        throw new Error(data.details || data.error || '未知错误');
+        throw new Error(data.details || data.error || '服务器响应错误');
       }
-
-      const data = await response.json();
-      console.log('收到响应数据:', data);
       
-      setFeedback(data.feedback);
-      setSubmitStatus('success');
-      document.getElementById('feedbackSection')?.scrollIntoView({ behavior: 'smooth' });
+      if (data.feedback) {
+        setFeedback(data.feedback);
+        setSubmitStatus('success');
+        document.getElementById('feedbackSection')?.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        throw new Error('未收到有效的反馈数据');
+      }
     } catch (error) {
-      console.error('完整错误信息:', error);
+      console.error('错误详情:', error);
       setSubmitStatus('error');
-      setFeedback(`抱歉，评分过程中出现错误：${error.message}`);
+      setFeedback(`评估过程出现错误：${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -217,7 +222,7 @@ const TrPractice = () => {
           {selectedTopic && (
             <div className="row gx-4 gx-lg-5">
               <div className="col-lg-12">
-                <h3 className="h4 mb-3">请用中文写出作文框架：</h3>
+                <h3 className="h4 mb-3">请用汉语写出作文框架：</h3>
                 <div className="form-group mb-3">
                   <textarea
                     className="form-control"
