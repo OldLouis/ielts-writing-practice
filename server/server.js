@@ -5,27 +5,54 @@ require('dotenv').config();
 
 const app = express();
 
-// 详细的 CORS 配置
+// 允许的域名列表
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://my-ielts-website-nqrro6c9b-louis-projects-ed306c0f.vercel.app',
+  'https://ielts-writing-practice.vercel.app'
+];
+
+// CORS 配置
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://ielts-writing-practice.vercel.app', '*'],
+  origin: function(origin, callback) {
+    // 允许没有 origin 的请求（比如移动应用）
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      console.log('请求源:', origin);
+      console.log('不在允许列表中');
+    }
+    
+    // 允许所有来源（开发阶段可以这样设置）
+    return callback(null, true);
+  },
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true,
   optionsSuccessStatus: 200
 }));
 
-// 添加预检请求处理
+// 添加预检请求的处理
 app.options('*', cors());
 
 app.use(express.json());
 
-// 添加请求日志中间件
+// 请求日志中间件
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  console.log('请求头:', req.headers);
+  console.log('Origin:', req.headers.origin);
+  console.log('Headers:', req.headers);
   if (req.method === 'POST') {
-    console.log('请求体:', req.body);
+    console.log('Body:', req.body);
   }
+  next();
+});
+
+// 确保在所有响应中添加 CORS 头
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
   next();
 });
 
