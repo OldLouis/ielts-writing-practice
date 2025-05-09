@@ -54,7 +54,7 @@ app.get('/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     env: {
-      hasApiKey: !!process.env.ZHIPU_API_KEY,
+      hasApiKey: !!process.env.DEEPSEEK_API_KEY,
       port: process.env.PORT
     }
   });
@@ -72,29 +72,101 @@ app.post('/api/evaluate', async (req, res) => {
       return res.status(400).json({ error: '缺少必要参数' });
     }
     
-    if (!process.env.ZHIPU_API_KEY) {
+    if (!process.env.DEEPSEEK_API_KEY) {
       console.error('未找到API密钥');
       return res.status(500).json({ error: 'API密钥配置错误' });
     }
 
-    const response = await axios.post('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
-      model: "glm-4",
-      messages: [
-        { role: "system", content: "你是一位专业的雅思写作考官，精通雅思写作评分标准和教学。" },
-        { role: "user", content: `作为一位专业的雅思写作考官，请对以下雅思大作文框架进行评估和提供建议。\n\n题目：${topic.question}\n类型：${topic.type}\n学生的框架：\n${outline}` }
-      ],
-      temperature: 0.7,
-      max_tokens: 1000,
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.ZHIPU_API_KEY}`
-      }
-    });
+    // 添加速率限制和重试机制
+    const maxRetries = 3;
+    let retryCount = 0;
+    let response;
+    const RATE_LIMIT_DELAY = 1500; // 1.5秒间隔
+    
+    while (retryCount < maxRetries) {
+      try {
+        // 添加请求延迟
+        if (retryCount > 0) {
+          await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
+        }
+        
+        console.log('准备调用DeepSeek API，请求体:', {
+          model: "deepseek-chat",
+          messages: [
+            { 
+              role: "system", 
+              content: "You are a professional IELTS writing examiner. Provide detailed evaluation following these steps:\n1. Give TR (Task Response) score (1-9)\n2. Analyze strengths and weaknesses\n3. Provide specific improvement suggestions\n4. Keep feedback constructive and professional" 
+            },
+            { 
+              role: "user", 
+              content: `Evaluate this IELTS Writing Task 2 response based on TR criteria:\n\nTopic: ${topic.question}\nType: ${topic.type}\nStudent's outline:\n${outline}\n\nProvide score first, then detailed feedback.` 
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 1000,
+        });
 
-    console.log('收到智谱API响应');
-    const feedback = response.data.choices[0].message.content;
-    res.json({ feedback });
+        response = await axios.post('https://api.deepseek.com/v1/chat/completions', {
+          model: "deepseek-chat",
+          messages: [
+            { 
+              role: "system", 
+              content: "You are a professional IELTS writing examiner. Provide detailed evaluation following these steps:\n1. Give TR (Task Response) score (1-9)\n2. Analyze strengths and weaknesses\n3. Provide specific improvement suggestions\n4. Keep feedback constructive and professional" 
+            },
+            { 
+              role: "user", 
+              content: `Evaluate this IELTS Writing Task 2 response based on TR criteria:\n\nTopic: ${topic.question}\nType: ${topic.type}\nStudent's outline:\n${outline}\n\nProvide score first, then detailed feedback.` 
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 1000,
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+            'Accept': 'application/json'
+          },
+          timeout: 30000, // 延长超时到30秒
+          httpsAgent: new (require('https').Agent)({  
+            rejectUnauthorized: false // 临时禁用SSL验证
+          })
+        });
+
+        console.log('收到DeepSeek API响应');
+        const feedback = response.data.choices[0].message.content;
+        return res.json({ feedback });
+        
+      } catch (error) {
+        retryCount++;
+        console.error(`API调用失败 (尝试 ${retryCount}/${maxRetries})`, error.message);
+        
+        if (error.response) {
+          // 处理API返回的错误
+          if (error.response.status === 429) {
+            console.log('达到速率限制，等待后重试...');
+            await new Promise(resolve => setTimeout(resolve, 5000)); // 5秒后重试
+            continue;
+          }
+          if (error.response.data?.error?.code === '1113') {
+            return res.status(500).json({ 
+              error: 'DeepSeek API账户问题',
+              details: '请检查API密钥和账户状态'
+            });
+          }
+        }
+        
+        if (retryCount >= maxRetries) {
+          return res.status(500).json({ 
+            error: '评分服务暂时不可用',
+            details: error.message,
+            apiResponse: error.response?.data 
+          });
+        }
+        
+        // 默认等待1秒后重试
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
 
   } catch (error) {
     console.error('详细错误信息:', error);
@@ -111,5 +183,5 @@ app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
   console.log('环境变量检查:');
   console.log('PORT:', process.env.PORT);
-  console.log('API_KEY 是否存在:', !!process.env.ZHIPU_API_KEY);
-}); 
+  console.log('API_KEY 是否存在:', !!process.env.DEEPSEEK_API_KEY);
+});
